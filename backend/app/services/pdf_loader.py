@@ -6,6 +6,7 @@ from app.core.vectorstore import vector_store
 
 
 def chunk_text(text, chunk_size=900, overlap=200):
+    """Split text into overlapping chunks"""
     chunks = []
     start = 0
     while start < len(text):
@@ -18,27 +19,58 @@ def chunk_text(text, chunk_size=900, overlap=200):
 
 
 def ingest_all_pdfs():
-    vector_store.reset()
-    all_chunks = []
+    """Extract text from all PDFs and ingest into Chroma DB"""
+    try:
+        vector_store.reset()
+        all_chunks = []
 
-    for file in os.listdir(UPLOAD_DIR):
-        if not file.lower().endswith(".pdf"):
-            continue
+        # Check if upload directory exists
+        if not os.path.exists(UPLOAD_DIR):
+            os.makedirs(UPLOAD_DIR, exist_ok=True)
+            print(f"Created upload directory: {UPLOAD_DIR}")
+            return
 
-        reader = PdfReader(os.path.join(UPLOAD_DIR, file))
-        for page in reader.pages:
-            text = page.extract_text()
-            if not text:
+        # Process each PDF file
+        for file in os.listdir(UPLOAD_DIR):
+            if not file.lower().endswith(".pdf"):
                 continue
 
-            text = " ".join(text.split())
-            all_chunks.extend(chunk_text(text))
+            try:
+                pdf_path = os.path.join(UPLOAD_DIR, file)
+                reader = PdfReader(pdf_path)
+                
+                for page_num, page in enumerate(reader.pages):
+                    try:
+                        text = page.extract_text()
+                        if not text or not text.strip():
+                            continue
 
-    if not all_chunks:
-        print("No text extracted from PDFs")
-        return
+                        # Clean up text
+                        text = " ".join(text.split())
+                        chunks = chunk_text(text)
+                        all_chunks.extend(chunks)
+                    except Exception as e:
+                        print(f"Error extracting text from page {page_num} of {file}: {str(e)}")
+                        continue
+                
+                print(f"Successfully processed {file}")
+            except Exception as e:
+                print(f"Error processing PDF {file}: {str(e)}")
+                continue
 
-    embeddings = embed(all_chunks)
-    vector_store.add(all_chunks, embeddings)
+        if not all_chunks:
+            print("No text extracted from PDFs")
+            return
 
-    print(f"Ingested {len(all_chunks)} chunks")
+        # Generate embeddings and add to Chroma DB
+        try:
+            embeddings = embed(all_chunks)
+            vector_store.add(all_chunks, embeddings)
+            print(f"Successfully ingested {len(all_chunks)} chunks into Chroma DB")
+        except Exception as e:
+            print(f"Error during embedding/ingestion: {str(e)}")
+            raise
+
+    except Exception as e:
+        print(f"Error in ingest_all_pdfs: {str(e)}")
+        raise

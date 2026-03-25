@@ -10,6 +10,7 @@ import Source from '@/components/ui/Sources';
 import Skeleton from '@/components/ui/Skeleton';
 import { useSession } from 'next-auth/react';
 import YoutubeCard from '@/components/ui/YoutubeCard';
+import MarkdownRenderer from '@/components/MarkdownRenderer';
 
 const AnswerPage = ({ notebookId, notebookName }) => {
   const { status } = useSession();
@@ -151,9 +152,7 @@ const AnswerPage = ({ notebookId, notebookName }) => {
 
                   <div className="mt-2">
                     {el.answer && el.answer.length > 0 ? (
-                      <p style={{ whiteSpace: "break-spaces" }}>
-                        {el.answer}
-                      </p>
+                      <MarkdownRenderer content={el.answer} />
                     ) : (
                       <Skeleton />
                     )}

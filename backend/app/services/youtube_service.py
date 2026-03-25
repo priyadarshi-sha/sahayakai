@@ -19,61 +19,79 @@ def is_relevant(title: str, description: str) -> bool:
 def find_timestamps_from_transcript(video_id: str, keywords):
     try:
         transcript = YouTubeTranscriptApi.get_transcript(video_id)
-    except Exception:
+    except Exception as e:
+        print(f"Error fetching transcript for {video_id}: {str(e)}")
         return []
 
     timestamps = []
 
     for entry in transcript:
-        line = entry["text"].lower()
-        if any(k in line for k in keywords):
-            t = int(entry["start"])
-            timestamps.append(f"{t // 60}:{t % 60:02d}")
+        try:
+            line = entry["text"].lower()
+            if any(k in line for k in keywords):
+                t = int(entry["start"])
+                timestamps.append(f"{t // 60}:{t % 60:02d}")
+        except Exception as e:
+            print(f"Error processing transcript entry: {str(e)}")
+            continue
 
     return list(dict.fromkeys(timestamps))[:5]
 
 
 def get_youtube_videos(question: str):
-    youtube = build("youtube", "v3", developerKey=YOUTUBE_API_KEY)
+    try:
+        if not YOUTUBE_API_KEY:
+            print("Warning: YOUTUBE_API_KEY not configured")
+            return []
 
-    # 🔥 ONLY SPPU restriction — NO subject restriction
-    search_query = f"SPPU university syllabus {question} lecture"
+        youtube = build("youtube", "v3", developerKey=YOUTUBE_API_KEY)
 
-    search_response = youtube.search().list(
-        q=search_query,
-        part="snippet",
-        maxResults=10,
-        type="video",
-        relevanceLanguage="en"
-    ).execute()
+        # SPPU university restriction
+        search_query = f"{question}"
 
-    keywords = [k.lower() for k in question.split() if len(k) > 3]
-    results = []
-
-    for item in search_response.get("items", []):
-        video_id = item["id"]["videoId"]
-        title = item["snippet"]["title"]
-
-        details = youtube.videos().list(
+        search_response = youtube.search().list(
+            q=search_query,
             part="snippet",
-            id=video_id
+            maxResults=10,
+            type="video",
+            relevanceLanguage="en"
         ).execute()
 
-        snippet = details["items"][0]["snippet"]
-        description = snippet.get("description", "")
+        keywords = [k.lower() for k in question.split() if len(k) > 3]
+        results = []
 
-        if not is_relevant(title, description):
-            continue
+        for item in search_response.get("items", []):
+            try:
+                video_id = item["id"]["videoId"]
+                title = item["snippet"]["title"]
 
-        timestamps = find_timestamps_from_transcript(video_id, keywords)
+                details = youtube.videos().list(
+                    part="snippet",
+                    id=video_id
+                ).execute()
 
-        results.append({
-            "title": title,
-            "videoId": video_id,
-            "timestamps": timestamps
-        })
+                snippet = details["items"][0]["snippet"]
+                description = snippet.get("description", "")
 
-        if len(results) == 3:
-            break
+                if not is_relevant(title, description):
+                    continue
 
-    return results
+                timestamps = find_timestamps_from_transcript(video_id, keywords)
+
+                results.append({
+                    "title": title,
+                    "videoId": video_id,
+                    "timestamps": timestamps
+                })
+
+                if len(results) == 3:
+                    break
+            except Exception as e:
+                print(f"Error processing video: {str(e)}")
+                continue
+
+        return results
+    
+    except Exception as e:
+        print(f"Error in get_youtube_videos: {str(e)}")
+        return []
