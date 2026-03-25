@@ -1,0 +1,59 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model membership {
+  email           String   @id @db.VarChar(255)
+  activation_code String   @db.VarChar(100)
+  start_date      DateTime @db.Date
+  end_date        DateTime @db.Date
+  duration_days   Int
+}
+
+model notebooks {
+  notebook_name String      @db.VarChar(255)
+  notebook_id   String      @id @db.VarChar(255)
+  uid           String      @db.VarChar(255)
+  created_time  DateTime    @default(now())
+  users         users       @relation(fields: [uid], references: [uid], onDelete: Cascade, onUpdate: NoAction)
+  questions     questions[]
+
+  @@index([uid], map: "notebooks_uid_fkey")
+}
+
+model questions {
+  question_id  String     @id @db.VarChar(255)
+  time_created DateTime   @default(now()) @db.Timestamp(6)
+  question     String
+  answer       String?
+  user_id      String     @db.VarChar(255)
+  sources      Json?
+  notebook_id  String?
+  youtube      String?
+  notebooks    notebooks? @relation(fields: [notebook_id], references: [notebook_id], onDelete: Cascade, onUpdate: NoAction)
+  users        users      @relation(fields: [user_id], references: [uid], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([notebook_id], map: "questions_notebook_id_fkey")
+  @@index([user_id], map: "questions_user_id_fkey")
+}
+
+model users {
+  name            String      @db.VarChar(255)
+  email           String      @unique @db.VarChar(255)
+  phone           String?     @db.VarChar(20)
+  hashed_password String?     @db.VarChar(255)
+  college         String?     @db.VarChar(255)
+  sem             Int?
+  branch          String?     @db.VarChar(255)
+  passing_year    Int?
+  uid             String      @id @db.VarChar(255)
+  paid            Boolean     @default(false)
+  usn             String?      @unique @db.VarChar(255)
+  notebooks       notebooks[]
+  questions       questions[]
+}
