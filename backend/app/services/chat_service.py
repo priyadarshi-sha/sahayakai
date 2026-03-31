@@ -1,6 +1,6 @@
 from app.core.embeddings import embed
 from app.core.vectorstore import vector_store
-from app.core.llm import generate_answer
+from app.core.llm import generate_answer, generate_answer_gemini
 from app.services.youtube_service import get_youtube_videos
 from app.services.notebook_service import save_chat
 
@@ -29,7 +29,7 @@ def chat(user_id: str, question: str):
         context_found = len(contexts) > 0
 
         # Generate answer using LLM
-        answer = generate_answer(context_text, question)
+        answer = generate_answer_gemini(context_text, question)
         
         # Get related videos
         videos = get_youtube_videos(question)
